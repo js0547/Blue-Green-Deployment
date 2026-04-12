@@ -8,5 +8,5 @@ spec:
     - port: 80
       targetPort: 8080
   selector:
-    app: healthcare-portal
+    app: healthcare-app
     color: blue # Controls active traffic routing!
