@@ -27,11 +27,17 @@ pipeline {
                 echo "📤 Building and Pushing to ECR..."
                 sh "aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
                 
-                // Build and Push Both Tags (for Showcase)
+                // Build and Push Backend (shared tag for now)
                 sh "docker build -t ${ECR_REGISTRY}/${BACKEND_IMAGE}:green ./backend"
-                sh "docker build -t ${ECR_REGISTRY}/${FRONTEND_IMAGE}:green ./frontend"
                 sh "docker tag ${ECR_REGISTRY}/${BACKEND_IMAGE}:green ${ECR_REGISTRY}/${BACKEND_IMAGE}:blue"
-                sh "docker tag ${ECR_REGISTRY}/${FRONTEND_IMAGE}:green ${ECR_REGISTRY}/${FRONTEND_IMAGE}:blue"
+                
+                // Build Frontend (Separate builds for Blue and Green themes)
+                echo "🎨 Building BLUE frontend..."
+                sh "docker build --build-arg VITE_APP_COLOR_THEME=blue --build-arg VITE_APP_VERSION=v1.0.0 -t ${ECR_REGISTRY}/${FRONTEND_IMAGE}:blue ./frontend"
+                
+                echo "🎨 Building GREEN frontend..."
+                sh "docker build --build-arg VITE_APP_COLOR_THEME=green --build-arg VITE_APP_VERSION=v2.0.0 -t ${ECR_REGISTRY}/${FRONTEND_IMAGE}:green ./frontend"
+
                 
                 sh "docker push ${ECR_REGISTRY}/${BACKEND_IMAGE}:green"
                 sh "docker push ${ECR_REGISTRY}/${FRONTEND_IMAGE}:green"
