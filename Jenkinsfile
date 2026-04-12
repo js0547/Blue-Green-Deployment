@@ -5,84 +5,78 @@ pipeline {
         REGION = "eu-north-1"
         FRONTEND_IMAGE = "healthcare-frontend"
         BACKEND_IMAGE = "healthcare-backend"
-        // Injected Jenkins Credentials
-        AWS_ACCESS_KEY_ID = credentials('AWS_ACCESS_KEY_ID')
-        AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
-        SLACK_TOKEN = credentials('SLACK_TOKEN')
     }
 
     stages {
         stage('Checkout SCM') {
             steps {
-                echo "Fetching repository from GitHub..."
                 checkout scm
             }
         }
 
-        stage('SAST: SonarQube Code Scan') {
+        stage('SAST: SonarQube') {
             steps {
-                echo "Initiating Static Application Security Testing (SAST) via SonarQube..."
-                sh "echo 'SonarQube analysis passed successfully.'"
+                sh "echo 'SonarQube passed.'"
             }
         }
 
-        stage('Build Secure Docker Images') {
+        stage('Build Docker Images') {
             steps {
-                echo "Packaging Apps..."
                 sh "cd backend && mvn clean package -DskipTests"
                 sh "docker build -t ${BACKEND_IMAGE}:green ./backend"
                 sh "docker build -t ${FRONTEND_IMAGE}:green ./frontend"
             }
         }
 
-        stage('SCA: Trivy Container Scan') {
+        stage('SCA: Trivy') {
             steps {
-                echo "Scanning Images..."
                 sh "trivy image --severity HIGH,CRITICAL --no-progress ${BACKEND_IMAGE}:green"
                 sh "trivy image --severity HIGH,CRITICAL --no-progress ${FRONTEND_IMAGE}:green"
             }
         }
 
-        stage('Deploy to Green Environment') {
+        stage('Deploy to EKS') {
             steps {
-                echo "Deploying to EKS..."
-                // The AWS_ACCESS_KEY_ID and SECRET are automatically recognized by the AWS CLI from the environment
-                sh "aws eks update-kubeconfig --region ${REGION} --name ${CLUSTER_NAME}"
-                sh "kubectl apply -f kubernetes/app/green-deployment.yaml"
+                withCredentials([
+                    string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'KEY_ID'),
+                    string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'SECRET_KEY')
+                ]) {
+                    echo "Deploying with explicit environment variables..."
+                    sh "AWS_ACCESS_KEY_ID=${KEY_ID} AWS_SECRET_ACCESS_KEY=${SECRET_KEY} aws eks update-kubeconfig --region ${REGION} --name ${CLUSTER_NAME}"
+                    sh "AWS_ACCESS_KEY_ID=${KEY_ID} AWS_SECRET_ACCESS_KEY=${SECRET_KEY} kubectl apply -f kubernetes/app/green-deployment.yaml"
+                }
             }
         }
 
-        stage('Approve Promotion') {
+        stage('Promotion Approval') {
             steps {
-                input message: "Promote Green to Active?", ok: "Promote"
+                input message: "Promote to Production?"
             }
         }
 
-        stage('Cutover') {
+        stage('Traffic Cutover') {
             steps {
-                sh "sed -i 's/color: blue/color: green/g' kubernetes/app/service.yaml"
-                sh "kubectl apply -f kubernetes/app/service.yaml"
-                echo "Deployment Cutover Completed!"
+                withCredentials([
+                    string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'KEY_ID'),
+                    string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'SECRET_KEY')
+                ]) {
+                    sh "AWS_ACCESS_KEY_ID=${KEY_ID} AWS_SECRET_ACCESS_KEY=${SECRET_KEY} sed -i 's/color: blue/color: green/g' kubernetes/app/service.yaml"
+                    sh "AWS_ACCESS_KEY_ID=${KEY_ID} AWS_SECRET_ACCESS_KEY=${SECRET_KEY} kubectl apply -f kubernetes/app/service.yaml"
+                }
             }
         }
     }
 
     post {
-        success {
-            slackSend(
-                token: "${SLACK_TOKEN}",
-                channel: '#healthcare-alerts',
-                color: 'good',
-                message: "✅ BUILD SUCCESS: Healthcare Portal #${env.BUILD_NUMBER} is now Green!"
-            )
-        }
-        failure {
-            slackSend(
-                token: "${SLACK_TOKEN}",
-                channel: '#healthcare-alerts',
-                color: 'danger',
-                message: "❌ BUILD FAILED: Healthcare Portal #${env.BUILD_NUMBER}"
-            )
+        always {
+            withCredentials([string(credentialsId: 'SLACK_TOKEN', variable: 'TOKEN')]) {
+                slackSend(
+                    token: "${TOKEN}",
+                    channel: '#healthcare-alerts',
+                    color: currentBuild.currentResult == 'SUCCESS' ? 'good' : 'danger',
+                    message: "Healthcare Portal Build #${env.BUILD_NUMBER}: ${currentBuild.currentResult}"
+                )
+            }
         }
     }
 }
