@@ -1,0 +1,28 @@
+# AWS Keys
+*.pem
+
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
+*.ear
+.mvn/
+.metadata/
+
+# Node / React
+node_modules/
+dist/
+build/
+.eslintcache
+*.log
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

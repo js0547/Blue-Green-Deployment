@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-deployment-green
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: healthcare-portal
+      color: green
+  template:
+    metadata:
+      labels:
+        app: healthcare-portal
+        color: green
+    spec:
+      containers:
+      # React Frontend
+      - name: frontend
+        image: healthcare-frontend:green # Placeholder: Will be overwritten by CI/CD
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d/default.conf
+          subPath: default.conf
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 5
+      # Spring Boot Backend
+      - name: backend
+        image: healthcare-backend:green # Placeholder: Will be overwritten by CI/CD
+        env:
+        - name: DB_HOST
+          value: "mysql-service" # Connecting backend internal cluster service
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-phi-secret
+              key: MYSQL_PASSWORD
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 15
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 30
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: frontend-nginx-config
