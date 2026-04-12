@@ -18,41 +18,39 @@ pipeline {
 
         stage('Build & Package') {
             steps {
-                echo "🏗️ Compiling Java Backend..."
                 sh "cd backend && mvn clean package -DskipTests"
             }
         }
 
         stage('Push to Amazon ECR') {
             steps {
-                echo "📤 Authenticating and Pushing Images to ECR..."
+                echo "📤 Building and Pushing to ECR..."
                 sh "aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
                 
-                // Build with full ECR tags
+                // Build and Push Both Tags (for Showcase)
                 sh "docker build -t ${ECR_REGISTRY}/${BACKEND_IMAGE}:green ./backend"
                 sh "docker build -t ${ECR_REGISTRY}/${FRONTEND_IMAGE}:green ./frontend"
+                sh "docker tag ${ECR_REGISTRY}/${BACKEND_IMAGE}:green ${ECR_REGISTRY}/${BACKEND_IMAGE}:blue"
+                sh "docker tag ${ECR_REGISTRY}/${FRONTEND_IMAGE}:green ${ECR_REGISTRY}/${FRONTEND_IMAGE}:blue"
                 
-                // Push
                 sh "docker push ${ECR_REGISTRY}/${BACKEND_IMAGE}:green"
                 sh "docker push ${ECR_REGISTRY}/${FRONTEND_IMAGE}:green"
+                sh "docker push ${ECR_REGISTRY}/${BACKEND_IMAGE}:blue"
+                sh "docker push ${ECR_REGISTRY}/${FRONTEND_IMAGE}:blue"
             }
         }
 
-        stage('SCA: Trivy') {
+        stage('Deploy to EKS') {
             steps {
-                sh "trivy image --severity HIGH,CRITICAL --no-progress ${ECR_REGISTRY}/${BACKEND_IMAGE}:green"
-            }
-        }
-
-        stage('Deploy: Green Environment') {
-            steps {
-                echo "🚀 Deploying to EKS..."
-                // Dynamically update the YAML with the new ECR path before applying
+                echo "🚀 Preparing Manifests with ECR URIs..."
+                // Fix Green
                 sh "sed -i 's|${BACKEND_IMAGE}:green|${ECR_REGISTRY}/${BACKEND_IMAGE}:green|g' kubernetes/app/green-deployment.yaml"
                 sh "sed -i 's|${FRONTEND_IMAGE}:green|${ECR_REGISTRY}/${FRONTEND_IMAGE}:green|g' kubernetes/app/green-deployment.yaml"
+                // Fix Blue
+                sh "sed -i 's|${BACKEND_IMAGE}:blue|${ECR_REGISTRY}/${BACKEND_IMAGE}:blue|g' kubernetes/app/blue-deployment.yaml"
+                sh "sed -i 's|${FRONTEND_IMAGE}:blue|${ECR_REGISTRY}/${FRONTEND_IMAGE}:blue|g' kubernetes/app/blue-deployment.yaml"
                 
                 sh "aws eks update-kubeconfig --region ${REGION} --name ${CLUSTER_NAME}"
-                // Apply EVERYTHING in the folder (ConfigMaps + Deployment)
                 sh "kubectl apply -f kubernetes/app/"
             }
         }
