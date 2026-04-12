@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: app-deployment-blue
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: healthcare-app
