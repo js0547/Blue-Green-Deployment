@@ -17,7 +17,8 @@ spec:
       containers:
       # React Frontend
       - name: frontend
-        image: 010822067639.dkr.ecr.eu-north-1.amazonaws.com/healthcare-frontend:green # Corrected ECR path
+        image: 010822067639.dkr.ecr.eu-north-1.amazonaws.com/healthcare-frontend:green
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
         volumeMounts:
@@ -31,7 +32,8 @@ spec:
           initialDelaySeconds: 5
       # Spring Boot Backend
       - name: backend
-        image: 010822067639.dkr.ecr.eu-north-1.amazonaws.com/healthcare-backend:green # Corrected ECR path
+        image: 010822067639.dkr.ecr.eu-north-1.amazonaws.com/healthcare-backend:green
+        imagePullPolicy: Always
         env:
         - name: DB_HOST
           value: "mysql-service" # Connecting backend internal cluster service
