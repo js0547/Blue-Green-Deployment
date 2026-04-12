@@ -42,14 +42,7 @@ pipeline {
 
         stage('Deploy to EKS') {
             steps {
-                echo "🚀 Preparing Manifests with ECR URIs..."
-                // Fix Green
-                sh "sed -i 's|${BACKEND_IMAGE}:green|${ECR_REGISTRY}/${BACKEND_IMAGE}:green|g' kubernetes/app/green-deployment.yaml"
-                sh "sed -i 's|${FRONTEND_IMAGE}:green|${ECR_REGISTRY}/${FRONTEND_IMAGE}:green|g' kubernetes/app/green-deployment.yaml"
-                // Fix Blue
-                sh "sed -i 's|${BACKEND_IMAGE}:blue|${ECR_REGISTRY}/${BACKEND_IMAGE}:blue|g' kubernetes/app/blue-deployment.yaml"
-                sh "sed -i 's|${FRONTEND_IMAGE}:blue|${ECR_REGISTRY}/${FRONTEND_IMAGE}:blue|g' kubernetes/app/blue-deployment.yaml"
-                
+                echo "🚀 Deploying to EKS..."
                 sh "aws eks update-kubeconfig --region ${REGION} --name ${CLUSTER_NAME}"
                 sh "kubectl apply -f kubernetes/app/"
             }
