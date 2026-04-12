@@ -6,9 +6,9 @@ pipeline {
         FRONTEND_IMAGE = "healthcare-frontend"
         BACKEND_IMAGE = "healthcare-backend"
         // Injected Jenkins Credentials
-        AWS_ACCESS_KEY_ID = credentials('aws-access-key')
-        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
-        SLACK_TOKEN = credentials('slack-token')
+        AWS_ACCESS_KEY_ID = credentials('AWS_ACCESS_KEY_ID')
+        AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
+        SLACK_TOKEN = credentials('SLACK_TOKEN')
     }
 
     stages {
