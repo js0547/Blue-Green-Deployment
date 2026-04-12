@@ -52,7 +52,8 @@ pipeline {
                 sh "sed -i 's|${FRONTEND_IMAGE}:green|${ECR_REGISTRY}/${FRONTEND_IMAGE}:green|g' kubernetes/app/green-deployment.yaml"
                 
                 sh "aws eks update-kubeconfig --region ${REGION} --name ${CLUSTER_NAME}"
-                sh "kubectl apply -f kubernetes/app/green-deployment.yaml"
+                // Apply EVERYTHING in the folder (ConfigMaps + Deployment)
+                sh "kubectl apply -f kubernetes/app/"
             }
         }
 
