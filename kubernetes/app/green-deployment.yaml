@@ -36,7 +36,17 @@ spec:
         imagePullPolicy: Always
         env:
         - name: DB_HOST
-          value: "mysql-service" # Connecting backend internal cluster service
+          value: "mysql-service"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: mysql-phi-secret
+              key: MYSQL_USER
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: mysql-phi-secret
+              key: MYSQL_DATABASE
         - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
