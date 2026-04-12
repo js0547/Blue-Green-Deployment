@@ -46,11 +46,16 @@ pipeline {
 
         stage('Deploy to Green Environment') {
             steps {
-                echo "Injecting workloads into the dormant Green K8s Environment..."
-                // Connects Jenkins to EKS
-                sh "aws eks update-kubeconfig --region ${REGION} --name ${CLUSTER_NAME}"
-                // Applies the green workloads
-                sh "kubectl apply -f kubernetes/app/green-deployment.yaml"
+                withCredentials([
+                    string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+                    echo "Injecting workloads into the dormant Green K8s Environment..."
+                    // Connects Jenkins to EKS using the injected credentials
+                    sh "export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} && export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} && aws eks update-kubeconfig --region ${REGION} --name ${CLUSTER_NAME}"
+                    // Applies the green workloads
+                    sh "kubectl apply -f kubernetes/app/green-deployment.yaml"
+                }
             }
         }
 
