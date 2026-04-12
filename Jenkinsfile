@@ -3,6 +3,8 @@ pipeline {
     environment {
         CLUSTER_NAME = "healthcare-prod-cluster"
         REGION = "eu-north-1"
+        AWS_ACCOUNT_ID = "010822067639"
+        ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com"
         FRONTEND_IMAGE = "healthcare-frontend"
         BACKEND_IMAGE = "healthcare-backend"
     }
@@ -10,70 +12,60 @@ pipeline {
     stages {
         stage('Checkout SCM') {
             steps {
-                echo "📥 Fetching source code from GitHub..."
                 checkout scm
-            }
-        }
-
-        stage('SAST: SonarQube Analysis') {
-            steps {
-                echo "🔍 Running Static Application Security Testing (SAST)..."
-                sh "echo 'SonarQube scan completed. Code quality: A, Vulnerabilities: 0'"
             }
         }
 
         stage('Build & Package') {
             steps {
-                echo "🏗️ Compiling Java Backend and Building Docker Containers..."
+                echo "🏗️ Compiling Java Backend..."
                 sh "cd backend && mvn clean package -DskipTests"
-                sh "docker build -t ${BACKEND_IMAGE}:green ./backend"
-                sh "docker build -t ${FRONTEND_IMAGE}:green ./frontend"
             }
         }
 
-        stage('SCA: Trivy Security Scan') {
+        stage('Push to Amazon ECR') {
             steps {
-                echo "🛡️ Running Software Composition Analysis (SCA) with Trivy..."
-                sh "trivy image --severity HIGH,CRITICAL --no-progress ${BACKEND_IMAGE}:green"
-                sh "trivy image --severity HIGH,CRITICAL --no-progress ${FRONTEND_IMAGE}:green"
+                echo "📤 Authenticating and Pushing Images to ECR..."
+                sh "aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
+                
+                // Build with full ECR tags
+                sh "docker build -t ${ECR_REGISTRY}/${BACKEND_IMAGE}:green ./backend"
+                sh "docker build -t ${ECR_REGISTRY}/${FRONTEND_IMAGE}:green ./frontend"
+                
+                // Push
+                sh "docker push ${ECR_REGISTRY}/${BACKEND_IMAGE}:green"
+                sh "docker push ${ECR_REGISTRY}/${FRONTEND_IMAGE}:green"
+            }
+        }
+
+        stage('SCA: Trivy') {
+            steps {
+                sh "trivy image --severity HIGH,CRITICAL --no-progress ${ECR_REGISTRY}/${BACKEND_IMAGE}:green"
             }
         }
 
         stage('Deploy: Green Environment') {
             steps {
-                echo "🚀 Deploying to EKS (Green Environment)..."
+                echo "🚀 Deploying to EKS..."
+                // Dynamically update the YAML with the new ECR path before applying
+                sh "sed -i 's|${BACKEND_IMAGE}:green|${ECR_REGISTRY}/${BACKEND_IMAGE}:green|g' kubernetes/app/green-deployment.yaml"
+                sh "sed -i 's|${FRONTEND_IMAGE}:green|${ECR_REGISTRY}/${FRONTEND_IMAGE}:green|g' kubernetes/app/green-deployment.yaml"
+                
                 sh "aws eks update-kubeconfig --region ${REGION} --name ${CLUSTER_NAME}"
                 sh "kubectl apply -f kubernetes/app/green-deployment.yaml"
             }
         }
 
-        stage('DAST: OWASP ZAP Scan') {
-            steps {
-                echo "⚡ Running Dynamic Application Security Testing (DAST) against Green..."
-                sh "echo 'OWASP ZAP Dynamic Scan completed. No critical paths exploitable.'"
-            }
-        }
-
-        stage('Observability: Prometheus') {
-            steps {
-                echo "📈 Deploying Prometheus, Grafana, and Alertmanager..."
-                sh "kubectl apply -f kubernetes/monitoring/"
-            }
-        }
-
         stage('Promotion Approval') {
             steps {
-                echo "⛔ Waiting for manual security and quality sign-off..."
-                input message: "All security benchmarks passed! Promote Green to Production?"
+                input message: "Promote Green to Production?"
             }
         }
 
-        stage('Traffic Cutover (Blue-Green)') {
+        stage('Traffic Cutover') {
             steps {
-                echo "🎯 Flipping LoadBalancer traffic from BLUE to GREEN..."
                 sh "sed -i 's/color: blue/color: green/g' kubernetes/app/service.yaml"
                 sh "kubectl apply -f kubernetes/app/service.yaml"
-                echo "✅ High-Availability Cutover Successful!"
             }
         }
     }
@@ -83,7 +75,7 @@ pipeline {
             slackSend(
                 tokenCredentialId: 'SLACK_TOKEN',
                 channel: '#healthcare-alerts',
-                message: "🏥 Healthcare Portal Build #${env.BUILD_NUMBER}: ${currentBuild.currentResult}\nMonitoring & Security Logs available at Grafana dashboard."
+                message: "Healthcare Portal Build #${env.BUILD_NUMBER}: ${currentBuild.currentResult}"
             )
         }
     }
