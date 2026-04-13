@@ -9,6 +9,13 @@ This repository contains the source code, infrastructure definitions, and deploy
 - kubernetes: Kubernetes manifests for application deployments, MySQL database, and monitoring services.
 - management-scripts: Shell scripts for AWS resource management and teardown.
 - Jenkinsfile: CI/CD pipeline definition for automated testing, scanning, building, and deployment.
+## Configuration Notes
+
+Before proceeding, please be aware that your AWS structure will have a different configuration. You must modify hardcoded variables across all scripts and configuration files (such as `Jenkinsfile`, `management-scripts/*.sh`, and `kubernetes/*.yaml`) to match your specific environment:
+- **AWS Region**: Update `eu-north-1` to your active AWS region.
+- **AWS Account ID**: Replace all instances of `010822067639` with your Account ID.
+- **Cluster Name**: Update `healthcare-prod-cluster` if you choose a different EKS cluster name.
+- **ECR Registry Name**: Ensure your Elastic Container Registry URL is set correctly.
 
 ## Prerequisites
 
