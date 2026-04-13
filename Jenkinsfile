@@ -22,9 +22,25 @@ pipeline {
             }
         }
 
-        stage('Push to Amazon ECR') {
+        stage('SonarQube Analysis') {
             steps {
-                echo "📤 Building and Pushing to ECR..."
+                echo "🔍 Running SonarQube Code Analysis..."
+                // Run SonarQube scanner for the backend via Maven
+                sh "cd backend && mvn sonar:sonar || echo 'SonarQube analysis failed but continuing'"
+            }
+        }
+
+        stage('OWASP Dependency-Check') {
+            steps {
+                echo "🛡️ Running OWASP Dependency-Check..."
+                // Assuming dependency-check.sh is available in PATH on the EC2 instance
+                sh "dependency-check.sh --project 'Healthcare-Portal' --scan ./backend || echo 'OWASP Dependency-Check failed but continuing'"
+            }
+        }
+
+        stage('Build Docker Images') {
+            steps {
+                echo "📤 Building Images..."
                 sh "aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
                 
                 // Build and Push Backend (shared tag for now)
@@ -37,6 +53,20 @@ pipeline {
                 
                 echo "🎨 Building GREEN frontend..."
                 sh "docker build --build-arg VITE_APP_COLOR_THEME=green --build-arg VITE_APP_VERSION=v2.0.0 -t ${ECR_REGISTRY}/${FRONTEND_IMAGE}:green ./frontend"
+            }
+        }
+
+        stage('Trivy Image Scan') {
+            steps {
+                echo "🔐 Running Trivy Image Scan..."
+                sh "trivy image ${ECR_REGISTRY}/${BACKEND_IMAGE}:green || echo 'Trivy check returned vulnerabilities'"
+                sh "trivy image ${ECR_REGISTRY}/${FRONTEND_IMAGE}:green || echo 'Trivy check returned vulnerabilities'"
+            }
+        }
+
+        stage('Push to Amazon ECR') {
+            steps {
+                echo "📤 Pushing to ECR..."
 
                 
                 sh "docker push ${ECR_REGISTRY}/${BACKEND_IMAGE}:green"
