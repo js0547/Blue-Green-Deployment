@@ -71,6 +71,7 @@ pipeline {
     post {
         always {
             slackSend(
+                botUser: true,
                 tokenCredentialId: 'SLACK_TOKEN',
                 channel: '#healthcare-alerts',
                 message: "Healthcare Portal Build #${env.BUILD_NUMBER}: ${currentBuild.currentResult}"
