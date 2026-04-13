@@ -26,7 +26,7 @@ pipeline {
             steps {
                 echo "🔍 Running SonarQube Code Analysis..."
                 // Run SonarQube scanner for the backend via Maven
-                sh "cd backend && mvn sonar:sonar || echo 'SonarQube analysis failed but continuing'"
+                sh "cd backend && mvn sonar:sonar -Dsonar.login=admin -Dsonar.password=admin || echo 'SonarQube analysis failed but continuing'"
             }
         }
 
