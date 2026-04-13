@@ -33,8 +33,8 @@ pipeline {
         stage('OWASP Dependency-Check') {
             steps {
                 echo "🛡️ Running OWASP Dependency-Check..."
-                // Assuming dependency-check.sh is available in PATH on the EC2 instance
-                sh "dependency-check.sh --project 'Healthcare-Portal' --scan ./backend || echo 'OWASP Dependency-Check failed but continuing'"
+                // Run OWASP Dependency-Check using the Maven plugin
+                sh "cd backend && mvn org.owasp:dependency-check-maven:check || echo 'OWASP Dependency-Check failed but continuing'"
             }
         }
 
