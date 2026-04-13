@@ -1,4 +1,4 @@
-# Healthcare Portal with Blue-Green Deployment
+#  Blue-Green Deployment + Prometheus + Grafana + AWS
 
 This repository contains the source code, infrastructure definitions, and deployment pipelines for a Healthcare Portal application. The architecture includes a Java Spring Boot backend, a React frontend, and a Kubernetes-based deployment model using a Blue-Green deployment strategy on AWS EKS.
 
